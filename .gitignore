@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+
+# Runtime output and local temporary data.
+artifacts/
+uploads/
+tmp/
+
+# Capture images must be kept outside Git, including synthetic local fixtures.
+*.jpg
+*.jpeg
+*.png
+*.webp

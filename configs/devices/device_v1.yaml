@@ -1,0 +1,41 @@
+device_version: "device_v1"
+display_name: "KERASCAN Week 1 reference device"
+physical:
+  phone_camera:
+    phone_manufacturer: null
+    phone_model: null
+    camera_module: null
+    lens_identity: null
+  capture:
+    resolution_width_px: null
+    resolution_height_px: null
+    image_format: null
+    iso: null
+    exposure_time_us: null
+    focus_mode: null
+    flash_mode: null
+    zoom_factor: null
+  placido:
+    ring_count: null
+    ring_diameters_mm: null
+    ring_thickness_mm: null
+    ring_spacing_mm: null
+  geometry:
+    phone_to_device_geometry: null
+    camera_to_attachment_offset_mm: null
+    working_distance_mm: null
+    orientation_convention: null
+runtime_limits:
+  max_upload_bytes: 16777216
+  max_decoded_width_px: 8000
+  max_decoded_height_px: 8000
+  max_decoded_pixels: 40000000
+  supported_extensions:
+    - ".jpg"
+    - ".jpeg"
+    - ".png"
+storage:
+  retain_uploaded_images: false
+  artifact_directory: "artifacts"
+  temporary_directory: null
+calibration_package_path: "calibration/device_v1"

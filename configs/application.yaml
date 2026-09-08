@@ -1,0 +1,15 @@
+software_version: "0.1.0"
+default_analysis_mode: MOCK
+host: "127.0.0.1"
+port: 8000
+max_request_bytes: 16777216
+storage:
+  retain_uploaded_images: false
+  artifact_directory: "artifacts"
+  temporary_directory: null
+safety:
+  allow_screen_negative: false
+ui_preferences:
+  show_preview: true
+  theme: "default"
+devices_directory: "configs/devices"
