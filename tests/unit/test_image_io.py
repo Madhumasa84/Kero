@@ -110,6 +110,7 @@ def test_decoded_dimension_limit_is_enforced(valid_png_path: Path):
 
     assert_image_error(valid_png_path, ReasonCode.IMAGE_DIMENSIONS_EXCEEDED, limits)
 
+
 def test_upload_size_exactly_at_limit_is_accepted(valid_jpeg_path: Path):
     size = valid_jpeg_path.stat().st_size
 
@@ -120,6 +121,7 @@ def test_upload_size_exactly_at_limit_is_accepted(valid_jpeg_path: Path):
 
     assert loaded.original_size_bytes == size
 
+
 def test_decoded_height_limit_is_enforced(valid_png_path: Path):
     limits = ImageLoadLimits(max_decoded_height_px=7)
 
@@ -128,6 +130,7 @@ def test_decoded_height_limit_is_enforced(valid_png_path: Path):
         ReasonCode.IMAGE_DIMENSIONS_EXCEEDED,
         limits,
     )
+
 
 def test_jpeg_extension_is_accepted(tmp_path: Path, jpeg_bytes: bytes):
     path = tmp_path / "synthetic_capture.jpeg"
