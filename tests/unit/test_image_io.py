@@ -4,6 +4,8 @@ import base64
 import hashlib
 from pathlib import Path
 
+import cv2
+import numpy as np
 import pytest
 
 from corneal_screening.contracts import ReasonCode
@@ -22,9 +24,11 @@ KNOWN_PNG_SHA256 = "431ced6916a2a21a156e38701afe55bbd7f88969fbbfc56d7fe099d47f26
 def assert_image_error(path: Path, code: ReasonCode, limits=None) -> ImageLoadError:
     with pytest.raises(ImageLoadError) as raised:
         load_image(path, limits)
+
     assert raised.value.code == code
     assert raised.value.message
     assert raised.value.instruction
+
     return raised.value
 
 
@@ -61,6 +65,7 @@ def test_known_fixture_hash(tmp_path: Path):
 
 def test_missing_file_has_typed_error(tmp_path: Path):
     error = assert_image_error(tmp_path / "missing.jpg", ReasonCode.IMAGE_READ_ERROR)
+
     assert "existing" in error.instruction
 
 
@@ -107,3 +112,86 @@ def test_decoded_dimension_limit_is_enforced(valid_png_path: Path):
     limits = ImageLoadLimits(max_decoded_width_px=9)
 
     assert_image_error(valid_png_path, ReasonCode.IMAGE_DIMENSIONS_EXCEEDED, limits)
+
+
+def test_upload_size_exactly_at_limit_is_accepted(valid_jpeg_path: Path):
+    size = valid_jpeg_path.stat().st_size
+
+    loaded = load_image(
+        valid_jpeg_path,
+        ImageLoadLimits(max_upload_bytes=size),
+    )
+
+    assert loaded.original_size_bytes == size
+
+
+def test_decoded_height_limit_is_enforced(valid_png_path: Path):
+    limits = ImageLoadLimits(max_decoded_height_px=7)
+
+    assert_image_error(
+        valid_png_path,
+        ReasonCode.IMAGE_DIMENSIONS_EXCEEDED,
+        limits,
+    )
+
+
+def test_jpeg_extension_is_accepted(tmp_path: Path, jpeg_bytes: bytes):
+    path = tmp_path / "synthetic_capture.jpeg"
+    path.write_bytes(jpeg_bytes)
+
+    loaded = load_image(path)
+
+    assert loaded.image_format.value == "JPEG"
+
+
+def test_decoded_pixel_limit_is_enforced(valid_png_path: Path):
+    limits = ImageLoadLimits(max_decoded_pixels=79)
+
+    assert_image_error(
+        valid_png_path,
+        ReasonCode.IMAGE_DIMENSIONS_EXCEEDED,
+        limits,
+    )
+
+
+def test_exact_dimension_and_pixel_limits_are_accepted(valid_png_path: Path):
+    limits = ImageLoadLimits(
+        max_decoded_width_px=10,
+        max_decoded_height_px=8,
+        max_decoded_pixels=80,
+    )
+
+    loaded = load_image(valid_png_path, limits)
+
+    assert (loaded.width_px, loaded.height_px) == (10, 8)
+
+
+def test_grayscale_png_reports_one_channel(tmp_path: Path):
+    image = np.full((6, 7), 128, dtype=np.uint8)
+    success, encoded = cv2.imencode(".png", image)
+
+    assert success
+
+    path = tmp_path / "synthetic_grayscale.png"
+    path.write_bytes(encoded.tobytes())
+
+    loaded = load_image(path)
+
+    assert loaded.channel_count == 1
+    assert loaded.working_array.flags.writeable is False
+
+
+def test_alpha_png_reports_four_channels(tmp_path: Path):
+    image = np.zeros((6, 7, 4), dtype=np.uint8)
+    image[:, :, 3] = 255
+    success, encoded = cv2.imencode(".png", image)
+
+    assert success
+
+    path = tmp_path / "synthetic_alpha.png"
+    path.write_bytes(encoded.tobytes())
+
+    loaded = load_image(path)
+
+    assert loaded.channel_count == 4
+    assert loaded.working_array.flags.writeable is False
