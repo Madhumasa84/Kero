@@ -95,3 +95,49 @@ Use this format:
 
 ```text
 anonymousPatientID_eye_session_captureNumber.extension
+
+```
+
+Example:
+
+```text
+P001_OD_S01_C01.jpg
+```
+
+Where:
+
+- `P001` is an anonymous patient ID.
+- `OD` is the right eye; use `OS` for the left eye.
+- `S01` is the capture session ID.
+- `C01` is the capture number.
+- `.jpg` or `.png` is the original file extension.
+
+Do not use a patient’s real name in the filename.
+
+## Data-privacy precautions
+
+- Use only approved anonymous or de-identified identifiers.
+- Do not include patient names, phone numbers, email addresses, hospital IDs, addresses, or dates of birth in filenames or metadata.
+- Keep clinical captures only in approved local storage with access controlled according to the project’s approved process.
+- Do not place clinical captures, identifiable metadata, or device captures in Git.
+- Do not upload captures to personal cloud storage, messaging apps, or unapproved external services.
+- Preserve the original image bytes. Do not edit, crop, enhance, sharpen, resize, replace, or overwrite the original capture.
+- Record access, transfer, retention, and deletion according to the approved project and institutional process.
+
+## Final capture checklist
+
+Before accepting a capture, confirm:
+
+- [ ] The correct anonymous patient ID, eye, session ID, operator ID, device version, and timestamp are recorded.
+- [ ] The correct eye is selected: `OD` for right or `OS` for left.
+- [ ] The patient’s selected eye is open and directed at the central fixation point.
+- [ ] Placido rings are visible around the corneal region.
+- [ ] The capture is not visibly blurred.
+- [ ] Strong glare, saturation, and major reflections are absent.
+- [ ] Eyelashes, eyelids, fingers, and device edges do not obstruct the important ring region.
+- [ ] The eye is not severely off-centre.
+- [ ] The original image has not been edited, cropped, sharpened, resized, enhanced, or replaced.
+- [ ] A matching metadata record is available.
+- [ ] The original capture is stored only in the approved location.
+
+If any item cannot be confirmed, reject the capture and recapture it. These checks support capture quality only; they do not provide a diagnosis.

@@ -1,4 +1,4 @@
-﻿# Fixture policy
+# Fixture policy
 
 This directory contains only fixture structure, metadata templates and documentation.
 Do not commit patient images, patient names or other personal information.
