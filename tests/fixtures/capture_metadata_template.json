@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "anonymous_patient_id": "SYNTHETIC001",
+  "eye": "OD",
+  "capture_session_id": "S01",
+  "capture_number": 1,
+  "device_version": "device_v1",
+  "operator_id": "OP001",
+  "capture_timestamp": "2026-09-10T10:30:00Z",
+  "expected_test_category": "acceptable",
+  "synthetic_test_image": true,
+  "notes": "Template only. Replace values for each approved fixture."
+}
