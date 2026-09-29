@@ -1,3 +1,4 @@
+import base64
 import json
 from datetime import datetime
 
@@ -8,8 +9,9 @@ from corneal_screening.application.form_validation import validate_form
 
 API_BASE_URL = "http://127.0.0.1:8000"
 DISCLAIMER = (
-    "Screening/referral support only; not a diagnosis. "
-    "Pentacam and clinician review are required for confirmation."
+    "Engineering prototype only; not a diagnosis or a normal screening result. "
+    "Experimental results require manual review; clinical confirmation requires "
+    "Pentacam and clinician review."
 )
 
 
@@ -25,9 +27,11 @@ def submit_analysis(
     filename: str,
     image_bytes: bytes,
     content_type: str,
+    include_overlays: bool = False,
 ) -> dict:
     response = httpx.post(
         f"{API_BASE_URL}/analyze",
+        params={"include_overlays": "true"} if include_overlays else None,
         data={"metadata": json.dumps(metadata)},
         files={"image": (filename, image_bytes, content_type)},
         timeout=30.0,
@@ -48,16 +52,14 @@ def display_status(status: str) -> None:
         st.warning(f"Status: {status}", icon="🟠")
     elif status == "MANUAL_REVIEW":
         st.warning(f"Status: {status}", icon="🟡")
-    elif status == "PENTACAM_EVALUATION_RECOMMENDED":
-        st.error(f"Status: {status}", icon="🔴")
-    elif status == "SCREEN_NEGATIVE":
-        st.success(f"Status: {status}", icon="🟢")
+    elif status == "BLOCKED":
+        st.error(f"Status: {status}")
     else:
         st.info(f"Status: {status or 'Unavailable'}")
 
 
 def display_result(result: dict) -> None:
-    st.subheader("Mock analysis result")
+    st.subheader(f"{result.get('analysis_mode', 'Analysis')} result")
 
     display_status(result.get("status", "Unavailable"))
 
@@ -104,18 +106,56 @@ def display_result(result: dict) -> None:
         "**Feature extraction:**",
         features.get("status") or "Unavailable",
     )
+    if quality.get("experimental"):
+        st.caption(
+            "Quality values are experimental image statistics. They have no "
+            "validated capture-quality thresholds."
+        )
+        st.json(
+            {
+                key: quality.get(key)
+                for key in (
+                    "blur_laplacian_variance",
+                    "brightness_mean",
+                    "contrast_stddev",
+                    "underexposed_pixel_fraction",
+                    "saturated_pixel_fraction",
+                    "visible_ring_coverage_fraction",
+                    "missing_sector_count",
+                    "sector_count",
+                )
+            }
+        )
+    if centre.get("diagnostics"):
+        st.write("**Centre diagnostics:**")
+        st.json(centre["diagnostics"])
+    if ring_tracking.get("rings"):
+        st.write("**Ordered ring tracks:**")
+        st.json(ring_tracking["rings"])
+    if features.get("experimental"):
+        st.caption("Geometric features are experimental and measured in image pixels.")
+        st.json(features)
+    for artifact in result.get("artifact_references") or []:
+        encoded = artifact.get("data_base64")
+        if not encoded:
+            continue
+        st.image(
+            base64.b64decode(encoded),
+            caption=artifact.get("artifact_type", "Review overlay"),
+            use_container_width=True,
+        )
 
 
 st.set_page_config(
-    page_title="KERASCAN Offline Screening",
+    page_title="KERASCAN Experimental Image Review",
     page_icon="👁️",
     layout="centered",
 )
 
-st.title("KERASCAN Offline Corneal Screening")
+st.title("KERASCAN Placido Image Review")
 st.info(
-    "Demo/mock mode — image analysis and clinical decision-making "
-    "are not performed in Week 1."
+    "Prototype only. Every result requires manual review. Experimental outputs "
+    "are uncalibrated image-space measurements and are not diagnostic."
 )
 try:
     devices = get_devices()
@@ -135,6 +175,23 @@ device_names = {
 }
 
 with st.form("screening_form"):
+    analysis_mode = st.radio(
+        "Processing mode",
+        options=["MOCK", "EXPERIMENTAL"],
+        horizontal=True,
+        help=(
+            "MOCK preserves the Week 1 behavior. EXPERIMENTAL computes uncalibrated "
+            "image-space measurements and still requires manual review."
+        ),
+    )
+    include_overlays = st.checkbox(
+        "Return review overlays with this response",
+        value=False,
+        help=(
+            "Overlays are returned inline for this request and are not "
+            "retained by the service."
+        ),
+    )
     anonymous_patient_id = st.text_input(
         "Anonymous patient ID",
         placeholder="P001",
@@ -142,7 +199,7 @@ with st.form("screening_form"):
     )
 
     eye = st.selectbox(
-        "Eye",
+        "Eye captured",
         options=[None, "OD", "OS"],
         format_func=lambda value: {
             None: "Select eye",
@@ -180,7 +237,7 @@ with st.form("screening_form"):
     )
 
     uploaded_image = st.file_uploader(
-        "Upload corneal image",
+        "Upload Placido image",
         type=["jpg", "jpeg", "png"],
         help="The original image will be sent without modification.",
     )
@@ -193,7 +250,7 @@ with st.form("screening_form"):
         )
 
     analyze_clicked = st.form_submit_button(
-        "Analyze",
+        "Run pipeline",
         disabled=not devices,
     )
 
@@ -208,14 +265,14 @@ if analyze_clicked:
     ).isoformat()
 
     metadata = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "anonymous_patient_id": anonymous_patient_id,
         "eye": eye,
         "capture_session_id": capture_session_id,
         "device_version": device_version,
         "operator_id": operator_id,
         "capture_timestamp": capture_timestamp,
-        "analysis_mode": "MOCK",
+        "analysis_mode": analysis_mode,
     }
 
     errors = validate_form(
@@ -234,6 +291,7 @@ if analyze_clicked:
                 filename=uploaded_image.name,
                 image_bytes=image_bytes,
                 content_type=uploaded_image.type or "application/octet-stream",
+                include_overlays=include_overlays,
             )
             display_result(result)
         except ValueError as exc:

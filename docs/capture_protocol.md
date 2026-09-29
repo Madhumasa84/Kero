@@ -6,7 +6,7 @@
 
 This protocol describes how an operator should capture a Placido-ring eye image for KERASCAN’s Week 1 image-input workflow.
 
-A successfully uploaded image is not a diagnosis and does not prove that the capture is clinically acceptable. Screening/referral support only; not a diagnosis. Pentacam and clinician review are required for confirmation.
+A successfully uploaded image does not prove that the capture is clinically acceptable. This engineering prototype is not a diagnosis or a normal screening result; all experimental results require manual review. Clinical confirmation requires Pentacam and clinician review.
 
 ## Required equipment
 

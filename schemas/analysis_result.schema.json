@@ -2,7 +2,8 @@
   "$defs": {
     "AnalysisMode": {
       "enum": [
-        "MOCK"
+        "MOCK",
+        "EXPERIMENTAL"
       ],
       "title": "AnalysisMode",
       "type": "string"
@@ -14,6 +15,23 @@
           "maxLength": 128,
           "minLength": 1,
           "title": "Artifact Type",
+          "type": "string"
+        },
+        "data_base64": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data Base64"
+        },
+        "media_type": {
+          "default": "image/png",
+          "title": "Media Type",
           "type": "string"
         },
         "retained": {
@@ -35,15 +53,22 @@
           "title": "Sha256"
         },
         "uri": {
-          "maxLength": 1024,
-          "minLength": 1,
-          "title": "Uri",
-          "type": "string"
+          "anyOf": [
+            {
+              "maxLength": 1024,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Uri"
         }
       },
       "required": [
-        "artifact_type",
-        "uri"
+        "artifact_type"
       ],
       "title": "ArtifactReference",
       "type": "object"
@@ -58,6 +83,88 @@
       "title": "CalibrationStatus",
       "type": "string"
     },
+    "CentreDiagnostics": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_x_px": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate X Px"
+        },
+        "candidate_y_px": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Y Px"
+        },
+        "edge_point_count": {
+          "minimum": 0,
+          "title": "Edge Point Count",
+          "type": "integer"
+        },
+        "peak_vote_count": {
+          "minimum": 0,
+          "title": "Peak Vote Count",
+          "type": "number"
+        },
+        "ring_angular_coverage": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Ring Angular Coverage",
+          "type": "array"
+        },
+        "search_region_xyxy_px": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Search Region Xyxy Px",
+          "type": "array"
+        },
+        "supporting_bright_ring_radii_px": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Supporting Bright Ring Radii Px",
+          "type": "array"
+        },
+        "supporting_edge_band_count": {
+          "minimum": 0,
+          "title": "Supporting Edge Band Count",
+          "type": "integer"
+        },
+        "supporting_edge_radii_px": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Supporting Edge Radii Px",
+          "type": "array"
+        }
+      },
+      "required": [
+        "edge_point_count",
+        "peak_vote_count",
+        "supporting_edge_band_count",
+        "search_region_xyxy_px"
+      ],
+      "title": "CentreDiagnostics",
+      "type": "object"
+    },
     "CentreInformation": {
       "additionalProperties": false,
       "properties": {
@@ -65,6 +172,33 @@
           "default": "image_pixels_xy",
           "title": "Coordinate System",
           "type": "string"
+        },
+        "diagnostics": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CentreDiagnostics"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "failure_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReasonCode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "source": {
           "anyOf": [
@@ -129,6 +263,20 @@
     "FeatureMeasurements": {
       "additionalProperties": false,
       "properties": {
+        "angular_coverage_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Angular Coverage Fraction"
+        },
         "astigmatism_diopters": {
           "anyOf": [
             {
@@ -141,6 +289,11 @@
           "default": null,
           "title": "Astigmatism Diopters"
         },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
         "mean_k_diopters": {
           "anyOf": [
             {
@@ -152,6 +305,70 @@
           ],
           "default": null,
           "title": "Mean K Diopters"
+        },
+        "mean_radial_asymmetry_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean Radial Asymmetry Px"
+        },
+        "mean_ring_spacing_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mean Ring Spacing Px"
+        },
+        "measurement_unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Measurement Unit"
+        },
+        "missing_sector_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Sector Count"
+        },
+        "ring_spacing_stddev_px": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ring Spacing Stddev Px"
         },
         "sim_k1_diopters": {
           "anyOf": [
@@ -235,6 +452,19 @@
     "QualityMeasurements": {
       "additionalProperties": false,
       "properties": {
+        "blur_laplacian_variance": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Blur Laplacian Variance"
+        },
         "brightness_mean": {
           "anyOf": [
             {
@@ -272,6 +502,11 @@
           "default": null,
           "title": "Contrast Stddev"
         },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
         "image_height_px": {
           "anyOf": [
             {
@@ -298,10 +533,50 @@
           "default": null,
           "title": "Image Width Px"
         },
+        "missing_sector_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Sector Count"
+        },
         "orientation_transformation": {
           "default": "none",
           "title": "Orientation Transformation",
           "type": "string"
+        },
+        "saturated_pixel_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Saturated Pixel Fraction"
+        },
+        "sector_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sector Count"
         },
         "source_format": {
           "anyOf": [
@@ -318,9 +593,37 @@
           "$ref": "#/$defs/QualityStatus",
           "default": "NOT_ASSESSED"
         },
+        "underexposed_pixel_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Underexposed Pixel Fraction"
+        },
         "validity": {
           "$ref": "#/$defs/MeasurementValidity",
           "default": "UNAVAILABLE"
+        },
+        "visible_ring_coverage_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visible Ring Coverage Fraction"
         }
       },
       "title": "QualityMeasurements",
@@ -353,7 +656,12 @@
         "IMAGE_READ_ERROR",
         "INVALID_METADATA",
         "CLINICAL_OUTPUT_BLOCKED",
-        "STAGE_NOT_IMPLEMENTED"
+        "STAGE_NOT_IMPLEMENTED",
+        "CENTRE_NOT_FOUND",
+        "CENTRE_UNRELIABLE",
+        "RING_CANDIDATES_NOT_FOUND",
+        "RING_TRACKING_INSUFFICIENT",
+        "POLAR_SAMPLING_FAILED"
       ],
       "title": "ReasonCode",
       "type": "string"
@@ -369,9 +677,146 @@
       "title": "ResultStatus",
       "type": "string"
     },
+    "RingTrack": {
+      "additionalProperties": false,
+      "properties": {
+        "coverage_fraction": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Coverage Fraction",
+          "type": "number"
+        },
+        "mean_radius_px": {
+          "minimum": 0,
+          "title": "Mean Radius Px",
+          "type": "number"
+        },
+        "ordered_index": {
+          "minimum": 1,
+          "title": "Ordered Index",
+          "type": "integer"
+        },
+        "radii_px": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "minItems": 1,
+          "title": "Radii Px",
+          "type": "array"
+        },
+        "radius_asymmetry_px": {
+          "minimum": 0,
+          "title": "Radius Asymmetry Px",
+          "type": "number"
+        },
+        "radius_range_px": {
+          "minimum": 0,
+          "title": "Radius Range Px",
+          "type": "number"
+        },
+        "validity_mask": {
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 1,
+          "title": "Validity Mask",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ordered_index",
+        "mean_radius_px",
+        "radius_range_px",
+        "radius_asymmetry_px",
+        "coverage_fraction",
+        "radii_px",
+        "validity_mask"
+      ],
+      "title": "RingTrack",
+      "type": "object"
+    },
     "RingTrackingInformation": {
       "additionalProperties": false,
       "properties": {
+        "angle_samples_deg": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Angle Samples Deg"
+        },
+        "angular_coverage_fraction": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Angular Coverage Fraction"
+        },
+        "candidate_radii_by_angle_px": {
+          "anyOf": [
+            {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Candidate Radii By Angle Px"
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "failure_reasons": {
+          "items": {
+            "$ref": "#/$defs/ReasonCode"
+          },
+          "title": "Failure Reasons",
+          "type": "array"
+        },
+        "missing_sector_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Sector Count"
+        },
         "ring_count": {
           "anyOf": [
             {
@@ -384,6 +829,26 @@
           ],
           "default": null,
           "title": "Ring Count"
+        },
+        "rings": {
+          "items": {
+            "$ref": "#/$defs/RingTrack"
+          },
+          "title": "Rings",
+          "type": "array"
+        },
+        "sector_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sector Count"
         },
         "status": {
           "$ref": "#/$defs/RingTrackingStatus",
@@ -428,7 +893,8 @@
     "RingTrackingStatus": {
       "enum": [
         "NOT_RUN",
-        "TRACKED"
+        "TRACKED",
+        "FAILED"
       ],
       "title": "RingTrackingStatus",
       "type": "string"
@@ -501,6 +967,7 @@
         "QUALITY_ASSESSMENT",
         "CENTRE_DETECTION",
         "SEGMENTATION",
+        "POLAR_SAMPLING",
         "RING_TRACKING",
         "FEATURE_EXTRACTION",
         "OUTCOME_POLICY"
@@ -622,6 +1089,18 @@
       "default": null,
       "title": "Original Image Sha256"
     },
+    "processing_configuration_version": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Processing Configuration Version"
+    },
     "quality_measurements": {
       "$ref": "#/$defs/QualityMeasurements"
     },
@@ -637,14 +1116,13 @@
       "$ref": "#/$defs/RingTrackingInformation"
     },
     "schema_version": {
-      "default": "1.0.0",
-      "maxLength": 32,
-      "minLength": 1,
+      "const": "1.1.0",
+      "default": "1.1.0",
       "title": "Schema Version",
       "type": "string"
     },
     "screening_disclaimer": {
-      "default": "Screening/referral support only; not a diagnosis. Pentacam and clinician review are required for confirmation.",
+      "default": "Engineering prototype only; not a diagnosis or a normal screening result. Experimental results require manual review; clinical confirmation requires Pentacam and clinician review.",
       "title": "Screening Disclaimer",
       "type": "string"
     },

@@ -1,35 +1,53 @@
-"""Week 1 pipeline orchestration.
-
-Image loading, calibration validation and the outcome policy remain separate
-so later processing stages can be added without changing the API contract.
-"""
+"""Shared MOCK and experimental pipeline orchestration."""
 
 from __future__ import annotations
 
+import base64
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
+
+import cv2
 
 from . import SOFTWARE_VERSION
 from .audit.hashing import hash_device_configuration
 from .calibration.validation import validate_calibration_package
 from .contracts import (
+    AnalysisMode,
     AnalysisRequest,
     AnalysisResult,
+    ArtifactReference,
     CalibrationStatus,
     CalibrationValidation,
     CentreInformation,
+    CentreStatus,
     DeviceConfiguration,
+    ExperimentalConfiguration,
     FeatureMeasurements,
     QualityMeasurements,
     ReasonCode,
     ResultStatus,
     RingTrackingInformation,
+    RingTrackingStatus,
     StageExecution,
     StageName,
     StageState,
 )
-from .image_processing import ImageLoadError, ImageLoadLimits, LoadedImage, load_image
+from .image_processing import (
+    ExperimentalArtifacts,
+    ImageLoadError,
+    ImageLoadLimits,
+    LoadedImage,
+    assess_quality,
+    detect_ring_candidates,
+    estimate_centre,
+    extract_geometric_features,
+    load_image,
+    render_experimental_artifacts,
+    sample_polar,
+    track_ring_candidates,
+)
 from .referral.policy import decide_mock_outcome
 
 
@@ -71,6 +89,7 @@ def _unimplemented_stages() -> list[StageExecution]:
             StageName.QUALITY_ASSESSMENT,
             StageName.CENTRE_DETECTION,
             StageName.SEGMENTATION,
+            StageName.POLAR_SAMPLING,
             StageName.RING_TRACKING,
             StageName.FEATURE_EXTRACTION,
         )
@@ -84,6 +103,7 @@ def _blocked_processing_stages(message: str) -> list[StageExecution]:
             StageName.QUALITY_ASSESSMENT,
             StageName.CENTRE_DETECTION,
             StageName.SEGMENTATION,
+            StageName.POLAR_SAMPLING,
             StageName.RING_TRACKING,
             StageName.FEATURE_EXTRACTION,
         )
@@ -103,6 +123,7 @@ def _base_result_kwargs(
     reason_codes: list[ReasonCode],
     message: str,
     stages: list[StageExecution],
+    processing_configuration_version: str | None = None,
 ) -> dict:
     return {
         "schema_version": metadata.schema_version,
@@ -123,6 +144,7 @@ def _base_result_kwargs(
         "device_configuration_hash": device_configuration_hash,
         "calibration_status": calibration_status,
         "calibration_identifier": calibration_identifier,
+        "processing_configuration_version": processing_configuration_version,
         "original_image_sha256": original_image_sha256,
         "quality_measurements": quality_measurements,
         "centre_information": CentreInformation(),
@@ -286,8 +308,10 @@ def analyze_capture(
     device_config: DeviceConfiguration,
     *,
     software_version: str = SOFTWARE_VERSION,
+    experimental_configuration: ExperimentalConfiguration | None = None,
+    include_overlays: bool = False,
 ) -> AnalysisResult:
-    """Run the Week 1 flow and return a schema-valid mock result."""
+    """Run MOCK or explicitly requested experimental image-space analysis."""
 
     if not isinstance(metadata, AnalysisRequest):
         metadata = AnalysisRequest.model_validate(metadata)
@@ -370,6 +394,17 @@ def analyze_capture(
             error=exc,
         )
 
+    if metadata.analysis_mode is AnalysisMode.EXPERIMENTAL:
+        return _analyze_experimental_image(
+            loaded,
+            metadata,
+            calibration,
+            device_hash,
+            software_version=software_version,
+            configuration=experimental_configuration or ExperimentalConfiguration(),
+            include_overlays=include_overlays,
+        )
+
     decision = decide_mock_outcome(calibration)
     stages = [
         _stage(
@@ -411,3 +446,315 @@ def analyze_capture(
             stages=stages,
         )
     )
+
+
+def _artifact_reference(artifact_type: str, content: bytes) -> ArtifactReference:
+    return ArtifactReference(
+        artifact_type=artifact_type,
+        media_type="image/png",
+        data_base64=base64.b64encode(content).decode("ascii"),
+        sha256=hashlib.sha256(content).hexdigest(),
+        retained=False,
+    )
+
+
+def _experimental_stages(
+    *,
+    quality_state: StageState,
+    quality_message: str,
+    centre: CentreInformation,
+    polar_state: StageState,
+    polar_message: str,
+    tracking: RingTrackingInformation,
+    calibration_status: CalibrationStatus,
+    feature_state: StageState,
+    feature_message: str,
+    outcome_reasons: list[ReasonCode],
+) -> list[StageExecution]:
+    if centre.status is CentreStatus.DETECTED:
+        centre_stage = _stage(
+            StageName.CENTRE_DETECTION,
+            StageState.PASSED,
+            "A candidate centre is supported by multiple circular edge bands; "
+            "diagnostics are experimental.",
+        )
+    else:
+        centre_stage = _stage(
+            StageName.CENTRE_DETECTION,
+            StageState.FAILED,
+            "No reliable Placido-ring centre was found.",
+            [centre.failure_reason or ReasonCode.CENTRE_NOT_FOUND],
+        )
+    tracking_state = (
+        StageState.PASSED
+        if tracking.status is RingTrackingStatus.TRACKED
+        else (
+            StageState.FAILED
+            if tracking.status is RingTrackingStatus.FAILED
+            else StageState.BLOCKED
+        )
+    )
+    if calibration_status is CalibrationStatus.VALIDATED:
+        calibration_state = StageState.PASSED
+        calibration_message = (
+            "Calibration status is recorded; image-space measurements "
+            "remain experimental."
+        )
+    else:
+        calibration_state = StageState.FAILED
+        calibration_message = (
+            "Physical calibration remains unvalidated; this does not calibrate "
+            "pixel-space measurements."
+        )
+    if tracking_state is StageState.PASSED:
+        tracking_message = (
+            "Ordered radial candidates were tracked with missing angles "
+            "preserved as null."
+        )
+    elif tracking_state is StageState.FAILED:
+        tracking_message = (
+            "Ring tracking did not meet the configured experimental "
+            "progression criteria."
+        )
+    else:
+        tracking_message = (
+            "Blocked because a reliable centre or polar sample was unavailable."
+        )
+    return [
+        _stage(StageName.INPUT_VALIDATION, StageState.PASSED, "Metadata validated."),
+        _stage(
+            StageName.DEVICE_CONFIGURATION_VALIDATION,
+            StageState.PASSED,
+            "Device configuration matches the request.",
+        ),
+        _stage(
+            StageName.IMAGE_LOADING,
+            StageState.PASSED,
+            "Original image bytes were hashed and decoded without modification.",
+        ),
+        _stage(
+            StageName.CALIBRATION_VALIDATION,
+            calibration_state,
+            calibration_message,
+            [
+                reason
+                for reason in outcome_reasons
+                if reason
+                in {
+                    ReasonCode.CALIBRATION_UNVALIDATED,
+                    ReasonCode.CALIBRATION_MISSING,
+                    ReasonCode.CALIBRATION_INVALID,
+                }
+            ],
+        ),
+        _stage(
+            StageName.QUALITY_ASSESSMENT,
+            quality_state,
+            quality_message,
+        ),
+        centre_stage,
+        _stage(
+            StageName.SEGMENTATION,
+            StageState.NOT_RUN,
+            "The experimental path samples radial intensity profiles directly; "
+            "a separate segmentation stage was not run.",
+            [ReasonCode.STAGE_NOT_IMPLEMENTED],
+        ),
+        _stage(StageName.POLAR_SAMPLING, polar_state, polar_message),
+        _stage(
+            StageName.RING_TRACKING,
+            tracking_state,
+            tracking_message,
+            tracking.failure_reasons,
+        ),
+        _stage(StageName.FEATURE_EXTRACTION, feature_state, feature_message),
+        _stage(
+            StageName.OUTCOME_POLICY,
+            StageState.PASSED,
+            "Automatic screening and referral recommendations are disabled; "
+            "manual review is required.",
+            [ReasonCode.CLINICAL_OUTPUT_BLOCKED],
+        ),
+    ]
+
+
+def _analyze_experimental_image(
+    loaded: LoadedImage,
+    metadata: AnalysisRequest,
+    calibration: CalibrationValidation,
+    device_hash: str,
+    *,
+    software_version: str,
+    configuration: ExperimentalConfiguration,
+    include_overlays: bool,
+) -> AnalysisResult:
+    image = loaded.working_array
+    quality = assess_quality(image, configuration).model_copy(
+        update={
+            "source_format": loaded.image_format,
+            "orientation_transformation": loaded.orientation_transformation,
+        }
+    )
+    centre = estimate_centre(image, configuration)
+    polar = None
+    candidates = None
+    tracking = RingTrackingInformation()
+    features = FeatureMeasurements()
+    artifacts = ExperimentalArtifacts(b"", b"", b"")
+    outcome_reasons = list(calibration.reason_codes)
+
+    if centre.status is not CentreStatus.DETECTED:
+        quality_stage_state = StageState.PASSED
+        quality_message = (
+            "Experimental blur, exposure and saturation statistics were "
+            "calculated; they have no validated pass/fail thresholds."
+        )
+        polar_state = StageState.BLOCKED
+        polar_message = "Blocked because reliable centre detection failed."
+        feature_state = StageState.BLOCKED
+        feature_message = (
+            "Blocked because ring tracking depends on centre and polar sampling."
+        )
+        outcome_reasons.append(centre.failure_reason or ReasonCode.CENTRE_NOT_FOUND)
+        message = (
+            "Experimental analysis stopped because no reliable Placido-ring centre "
+            "was found. Manual review is required."
+        )
+    else:
+        quality_stage_state = StageState.PASSED
+        quality_message = (
+            "Experimental blur, exposure and saturation statistics were "
+            "calculated; they have no validated pass/fail thresholds."
+        )
+        try:
+            polar = sample_polar(image, centre, configuration)
+            polar_state = StageState.PASSED
+        except (ValueError, cv2.error) as exc:
+            polar_state = StageState.FAILED
+            polar_message = f"Polar sampling failed in a controlled way: {exc}"
+            tracking = RingTrackingInformation(
+                experimental=True,
+                failure_reasons=[ReasonCode.POLAR_SAMPLING_FAILED],
+            )
+            feature_state = StageState.BLOCKED
+            feature_message = "Blocked because polar sampling failed."
+            outcome_reasons.append(ReasonCode.POLAR_SAMPLING_FAILED)
+            message = (
+                "Experimental image analysis failed at polar sampling. "
+                "Manual review is required."
+            )
+        else:
+            polar_message = (
+                "Image intensities were sampled around the estimated centre."
+            )
+            try:
+                candidates = detect_ring_candidates(polar, configuration)
+                tracking = track_ring_candidates(candidates, configuration)
+            except (ValueError, cv2.error):
+                tracking = RingTrackingInformation(
+                    status=RingTrackingStatus.FAILED,
+                    experimental=True,
+                    failure_reasons=[ReasonCode.RING_CANDIDATES_NOT_FOUND],
+                )
+                feature_state = StageState.BLOCKED
+                feature_message = "Blocked because ring candidate processing failed."
+                outcome_reasons.append(ReasonCode.RING_CANDIDATES_NOT_FOUND)
+                message = (
+                    "Experimental ring candidate processing failed. "
+                    "Manual review is required."
+                )
+            if candidates is None:
+                polar_state = StageState.PASSED
+                polar_message = (
+                    "Image intensities were sampled around the estimated centre."
+                )
+            else:
+                quality = quality.model_copy(
+                    update={
+                        "visible_ring_coverage_fraction": (
+                            tracking.angular_coverage_fraction
+                        ),
+                        "missing_sector_count": tracking.missing_sector_count,
+                        "sector_count": tracking.sector_count,
+                    }
+                )
+                if tracking.status is RingTrackingStatus.TRACKED:
+                    features = extract_geometric_features(tracking)
+                    feature_state = StageState.PASSED
+                    feature_message = (
+                        "Descriptive image-space geometry was calculated in pixels; "
+                        "no physical calibration or disease score was applied."
+                    )
+                    message = (
+                        "Experimental image-space analysis completed. Results require "
+                        "manual review and are not calibrated or diagnostic."
+                    )
+                else:
+                    feature_state = StageState.BLOCKED
+                    feature_message = (
+                        "Blocked because ordered ring tracking did not meet the "
+                        "configured experimental progression criteria."
+                    )
+                    outcome_reasons.extend(tracking.failure_reasons)
+                    message = (
+                        "Centre and ring candidates were measured, but ordered "
+                        "tracking did not meet configured experimental progression "
+                        "criteria. "
+                        "Manual review is required."
+                    )
+
+    if include_overlays and centre.status is CentreStatus.DETECTED:
+        artifacts = render_experimental_artifacts(
+            image, centre, polar, candidates, tracking
+        )
+    stages = _experimental_stages(
+        quality_state=quality_stage_state,
+        quality_message=quality_message,
+        centre=centre,
+        polar_state=polar_state,
+        polar_message=polar_message,
+        tracking=tracking,
+        calibration_status=calibration.status,
+        feature_state=feature_state,
+        feature_message=feature_message,
+        outcome_reasons=outcome_reasons,
+    )
+    artifact_references: list[ArtifactReference] = []
+    if include_overlays and centre.status is CentreStatus.DETECTED:
+        artifact_references.append(
+            _artifact_reference("centre_overlay", artifacts.centre_overlay_png)
+        )
+        if candidates is not None:
+            artifact_references.append(
+                _artifact_reference(
+                    "ring_candidate_overlay", artifacts.ring_candidate_overlay_png
+                )
+            )
+        if polar is not None:
+            artifact_references.append(
+                _artifact_reference("polar_view", artifacts.polar_view_png)
+            )
+    unique_reasons = list(
+        dict.fromkeys([*outcome_reasons, ReasonCode.CLINICAL_OUTPUT_BLOCKED])
+    )
+    result_kwargs = _base_result_kwargs(
+        metadata,
+        software_version=software_version,
+        device_configuration_hash=device_hash,
+        calibration_status=calibration.status,
+        calibration_identifier=calibration.calibration_identifier,
+        original_image_sha256=loaded.original_sha256,
+        quality_measurements=quality,
+        status=ResultStatus.MANUAL_REVIEW,
+        reason_codes=unique_reasons,
+        message=message,
+        stages=stages,
+        processing_configuration_version=configuration.configuration_version,
+    )
+    result_kwargs.update(
+        centre_information=centre,
+        ring_tracking=tracking,
+        features=features,
+        artifact_references=artifact_references,
+    )
+    return AnalysisResult(**result_kwargs)

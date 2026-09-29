@@ -10,14 +10,15 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 SCREENING_DISCLAIMER = (
-    "Screening/referral support only; not a diagnosis. Pentacam and clinician "
-    "review are required for confirmation."
+    "Engineering prototype only; not a diagnosis or a normal screening result. "
+    "Experimental results require manual review; clinical confirmation requires "
+    "Pentacam and clinician review."
 )
 _AWARE_DATETIME_JSON_SCHEMA = {
     "description": "RFC 3339 date-time with an explicit timezone offset.",
@@ -43,6 +44,7 @@ class Eye(str, Enum):
 
 class AnalysisMode(str, Enum):
     MOCK = "MOCK"
+    EXPERIMENTAL = "EXPERIMENTAL"
 
 
 class ResultStatus(str, Enum):
@@ -71,6 +73,11 @@ class ReasonCode(str, Enum):
     INVALID_METADATA = "INVALID_METADATA"
     CLINICAL_OUTPUT_BLOCKED = "CLINICAL_OUTPUT_BLOCKED"
     STAGE_NOT_IMPLEMENTED = "STAGE_NOT_IMPLEMENTED"
+    CENTRE_NOT_FOUND = "CENTRE_NOT_FOUND"
+    CENTRE_UNRELIABLE = "CENTRE_UNRELIABLE"
+    RING_CANDIDATES_NOT_FOUND = "RING_CANDIDATES_NOT_FOUND"
+    RING_TRACKING_INSUFFICIENT = "RING_TRACKING_INSUFFICIENT"
+    POLAR_SAMPLING_FAILED = "POLAR_SAMPLING_FAILED"
 
 
 class StageName(str, Enum):
@@ -81,6 +88,7 @@ class StageName(str, Enum):
     QUALITY_ASSESSMENT = "QUALITY_ASSESSMENT"
     CENTRE_DETECTION = "CENTRE_DETECTION"
     SEGMENTATION = "SEGMENTATION"
+    POLAR_SAMPLING = "POLAR_SAMPLING"
     RING_TRACKING = "RING_TRACKING"
     FEATURE_EXTRACTION = "FEATURE_EXTRACTION"
     OUTCOME_POLICY = "OUTCOME_POLICY"
@@ -119,6 +127,7 @@ class CentreStatus(str, Enum):
 class RingTrackingStatus(str, Enum):
     NOT_RUN = "NOT_RUN"
     TRACKED = "TRACKED"
+    FAILED = "FAILED"
 
 
 class FeatureStatus(str, Enum):
@@ -142,7 +151,7 @@ def _require_timezone(value: datetime | None) -> datetime | None:
 class AnalysisRequest(ContractModel):
     """Metadata submitted with one original capture image."""
 
-    schema_version: str = Field(default="1.0.0", min_length=1, max_length=32)
+    schema_version: Literal["1.1.0"] = "1.1.0"
     anonymous_patient_id: str = Field(min_length=1, max_length=128)
     eye: Eye
     capture_session_id: str = Field(min_length=1, max_length=128)
@@ -246,6 +255,52 @@ class UiPreferences(ContractModel):
     theme: str = "default"
 
 
+class ExperimentalConfiguration(ContractModel):
+    """Versioned engineering parameters; none are validated capture rules."""
+
+    configuration_version: str = Field(
+        default="experimental-v1.1.0", min_length=1, max_length=64
+    )
+    max_analysis_side_px: int = Field(default=1200, ge=128)
+    ring_background_window_px: int = Field(default=15, ge=3, le=255)
+    edge_gradient_floor: float = Field(default=45.0, gt=0)
+    centre_radius_min_fraction: float = Field(default=0.015, gt=0, lt=0.5)
+    centre_radius_max_fraction: float = Field(default=0.46, gt=0, lt=0.5)
+    centre_radius_step_fraction: float = Field(default=0.002, gt=0, lt=0.1)
+    centre_min_supporting_rings: int = Field(default=2, ge=1)
+    centre_min_ring_angular_coverage: float = Field(default=0.28, gt=0, le=1)
+    centre_candidate_count: int = Field(default=12, ge=1, le=100)
+    polar_angle_samples: int = Field(default=360, ge=36, le=1440)
+    polar_radial_step_px: float = Field(default=1.0, gt=0, le=10)
+    polar_min_radius_px: float = Field(default=3.0, ge=0)
+    polar_max_radius_fraction: float = Field(default=0.46, gt=0, lt=0.5)
+    candidate_min_intensity: float = Field(default=70.0, ge=0, le=255)
+    candidate_min_prominence: float = Field(default=12.0, ge=0, le=255)
+    candidate_min_spacing_px: float = Field(default=4.0, gt=0)
+    candidate_prominence_window_px: int = Field(default=5, ge=2, le=32)
+    quality_dark_pixel_threshold: int = Field(default=8, ge=0, le=254)
+    quality_saturated_pixel_threshold: int = Field(default=250, ge=1, le=255)
+    quality_sector_count: int = Field(default=36, ge=4, le=360)
+    sector_min_detection_fraction: float = Field(default=0.5, gt=0, le=1)
+    tracking_max_radius_step_px: float = Field(default=8.0, gt=0)
+    tracking_max_gap_samples: int = Field(default=60, ge=0, le=1440)
+    tracking_min_observations: int = Field(default=18, ge=1)
+    tracking_min_coverage_fraction: float = Field(default=0.45, gt=0, le=1)
+    tracking_min_ring_count_for_features: int = Field(default=2, ge=1)
+
+    @model_validator(mode="after")
+    def _validate_radius_ranges(self) -> ExperimentalConfiguration:
+        if self.centre_radius_min_fraction >= self.centre_radius_max_fraction:
+            raise ValueError("centre minimum radius fraction must be below maximum")
+        if self.quality_dark_pixel_threshold >= self.quality_saturated_pixel_threshold:
+            raise ValueError("dark pixel threshold must be below saturated threshold")
+        if self.polar_angle_samples % 2 != 0:
+            raise ValueError(
+                "polar_angle_samples must be even for opposite-angle metrics"
+            )
+        return self
+
+
 class ApplicationConfiguration(ContractModel):
     software_version: str = Field(min_length=1, max_length=64)
     default_analysis_mode: AnalysisMode = AnalysisMode.MOCK
@@ -256,6 +311,7 @@ class ApplicationConfiguration(ContractModel):
     safety: SafetyConfiguration
     ui_preferences: UiPreferences
     devices_directory: str = Field(min_length=1)
+    experimental: ExperimentalConfiguration
 
 
 class CalibrationManifest(ContractModel):
@@ -323,6 +379,7 @@ class StageExecution(ContractModel):
 
 class QualityMeasurements(ContractModel):
     status: QualityStatus = QualityStatus.NOT_ASSESSED
+    experimental: bool = False
     image_width_px: int | None = Field(default=None, gt=0)
     image_height_px: int | None = Field(default=None, gt=0)
     channel_count: int | None = Field(default=None, gt=0)
@@ -330,6 +387,12 @@ class QualityMeasurements(ContractModel):
     orientation_transformation: str = "none"
     brightness_mean: float | None = None
     contrast_stddev: float | None = None
+    blur_laplacian_variance: float | None = Field(default=None, ge=0)
+    underexposed_pixel_fraction: float | None = Field(default=None, ge=0, le=1)
+    saturated_pixel_fraction: float | None = Field(default=None, ge=0, le=1)
+    visible_ring_coverage_fraction: float | None = Field(default=None, ge=0, le=1)
+    missing_sector_count: int | None = Field(default=None, ge=0)
+    sector_count: int | None = Field(default=None, gt=0)
     validity: MeasurementValidity = MeasurementValidity.UNAVAILABLE
 
 
@@ -338,40 +401,113 @@ class Point2D(ContractModel):
     y_px: float
 
 
+class CentreDiagnostics(ContractModel):
+    candidate_x_px: float | None = None
+    candidate_y_px: float | None = None
+    edge_point_count: int = Field(ge=0)
+    peak_vote_count: float = Field(ge=0)
+    supporting_edge_band_count: int = Field(ge=0)
+    supporting_edge_radii_px: list[float] = Field(default_factory=list)
+    supporting_bright_ring_radii_px: list[float] = Field(default_factory=list)
+    ring_angular_coverage: list[float] = Field(default_factory=list)
+    search_region_xyxy_px: list[float] = Field(min_length=4, max_length=4)
+
+
 class CentreInformation(ContractModel):
     status: CentreStatus = CentreStatus.NOT_DETECTED
     x_px: float | None = None
     y_px: float | None = None
     coordinate_system: str = "image_pixels_xy"
     source: str | None = None
+    experimental: bool = False
+    diagnostics: CentreDiagnostics | None = None
+    failure_reason: ReasonCode | None = None
+
+    @model_validator(mode="after")
+    def _validate_centre_coordinates(self) -> CentreInformation:
+        if self.status is CentreStatus.DETECTED and (
+            self.x_px is None or self.y_px is None
+        ):
+            raise ValueError("a detected centre requires both image coordinates")
+        if self.status is CentreStatus.NOT_DETECTED and (
+            self.x_px is not None or self.y_px is not None
+        ):
+            raise ValueError("an undetected centre must use null coordinates")
+        if self.status is CentreStatus.DETECTED and self.failure_reason is not None:
+            raise ValueError("a detected centre cannot contain a failure reason")
+        return self
+
+
+class RingTrack(ContractModel):
+    ordered_index: int = Field(ge=1)
+    mean_radius_px: float = Field(ge=0)
+    radius_range_px: float = Field(ge=0)
+    radius_asymmetry_px: float = Field(ge=0)
+    coverage_fraction: float = Field(ge=0, le=1)
+    radii_px: list[float | None] = Field(min_length=1)
+    validity_mask: list[bool] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _validate_observation_lengths(self) -> RingTrack:
+        if len(self.radii_px) != len(self.validity_mask):
+            raise ValueError("radii_px and validity_mask must have the same length")
+        if any(
+            valid != (radius is not None)
+            for valid, radius in zip(self.validity_mask, self.radii_px, strict=True)
+        ):
+            raise ValueError("missing ring observations must use null and valid=false")
+        return self
 
 
 class RingTrackingInformation(ContractModel):
     status: RingTrackingStatus = RingTrackingStatus.NOT_RUN
+    experimental: bool = False
     ring_count: int | None = Field(default=None, gt=0)
     tracked_ring_count: int | None = Field(default=None, gt=0)
     tracked_points: list[Point2D] | None = None
+    angle_samples_deg: list[float] | None = None
+    candidate_radii_by_angle_px: list[list[float]] | None = None
+    rings: list[RingTrack] = Field(default_factory=list)
+    angular_coverage_fraction: float | None = Field(default=None, ge=0, le=1)
+    missing_sector_count: int | None = Field(default=None, ge=0)
+    sector_count: int | None = Field(default=None, gt=0)
+    failure_reasons: list[ReasonCode] = Field(default_factory=list)
     validity: MeasurementValidity = MeasurementValidity.UNAVAILABLE
 
 
 class FeatureMeasurements(ContractModel):
     status: FeatureStatus = FeatureStatus.NOT_RUN
+    experimental: bool = False
+    measurement_unit: str | None = None
     sim_k1_diopters: float | None = None
     sim_k2_diopters: float | None = None
     mean_k_diopters: float | None = None
     astigmatism_diopters: float | None = None
+    mean_ring_spacing_px: float | None = Field(default=None, ge=0)
+    ring_spacing_stddev_px: float | None = Field(default=None, ge=0)
+    mean_radial_asymmetry_px: float | None = Field(default=None, ge=0)
+    angular_coverage_fraction: float | None = Field(default=None, ge=0, le=1)
+    missing_sector_count: int | None = Field(default=None, ge=0)
     validity: MeasurementValidity = MeasurementValidity.UNAVAILABLE
 
 
 class ArtifactReference(ContractModel):
     artifact_type: str = Field(min_length=1, max_length=128)
-    uri: str = Field(min_length=1, max_length=1024)
+    uri: str | None = Field(default=None, min_length=1, max_length=1024)
+    media_type: str = "image/png"
+    data_base64: str | None = None
     sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     retained: bool = False
 
+    @model_validator(mode="after")
+    def _require_artifact_payload(self) -> ArtifactReference:
+        if (self.uri is None) == (self.data_base64 is None):
+            raise ValueError("provide exactly one of uri or data_base64")
+        return self
+
 
 class AnalysisResult(ContractModel):
-    schema_version: str = Field(default="1.0.0", min_length=1, max_length=32)
+    schema_version: Literal["1.1.0"] = "1.1.0"
     software_version: str = Field(min_length=1, max_length=64)
     analysis_id: UUID
     analysis_mode: AnalysisMode
@@ -391,6 +527,7 @@ class AnalysisResult(ContractModel):
     )
     calibration_status: CalibrationStatus
     calibration_identifier: str | None = None
+    processing_configuration_version: str | None = None
     original_image_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     quality_measurements: QualityMeasurements
     centre_information: CentreInformation

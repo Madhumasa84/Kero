@@ -13,7 +13,9 @@ from .contracts import AnalysisRequest, Eye
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run KERASCAN Week 1 mock analysis")
+    parser = argparse.ArgumentParser(
+        description="Run the local KERASCAN image pipeline"
+    )
     parser.add_argument("image_path", help="Path to a JPEG or PNG image")
     parser.add_argument("--anonymous-patient-id", required=True)
     parser.add_argument("--eye", choices=[eye.value for eye in Eye], required=True)
@@ -24,6 +26,15 @@ def _parser() -> argparse.ArgumentParser:
         "--capture-timestamp",
         required=True,
         help="ISO-8601 timestamp with timezone, for example 2026-09-08T12:00:00+05:30",
+    )
+    parser.add_argument(
+        "--analysis-mode",
+        choices=["MOCK", "EXPERIMENTAL"],
+        default="MOCK",
+        help=(
+            "MOCK is the default; EXPERIMENTAL returns uncalibrated "
+            "image-space measurements."
+        ),
     )
     parser.add_argument(
         "--project-root",
@@ -43,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             device_version=args.device_version,
             operator_id=args.operator_id,
             capture_timestamp=datetime.fromisoformat(args.capture_timestamp),
+            analysis_mode=args.analysis_mode,
         )
         application, registry = load_default_runtime(args.project_root)
         record = registry.get(metadata.device_version)
@@ -61,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
                 metadata,
                 record.configuration,
                 software_version=application.software_version,
+                experimental_configuration=application.experimental,
             )
     except ValidationError as exc:
         print(

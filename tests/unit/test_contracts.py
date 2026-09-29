@@ -14,6 +14,13 @@ def test_valid_metadata_uses_required_names_and_eye(metadata: AnalysisRequest):
     assert metadata.capture_timestamp.utcoffset() is not None
 
 
+def test_request_contract_rejects_an_unsupported_schema_version(metadata):
+    with pytest.raises(ValidationError):
+        AnalysisRequest.model_validate(
+            {**metadata.model_dump(mode="json"), "schema_version": "1.0.0"}
+        )
+
+
 def test_missing_required_metadata_is_rejected():
     with pytest.raises(ValidationError):
         AnalysisRequest(

@@ -60,3 +60,34 @@ def test_allow_screen_negative_cannot_bypass_mock_or_calibration():
         )
         is False
     )
+
+
+def test_experimental_mode_cannot_enable_a_clinical_decision():
+    calibration = CalibrationValidation(
+        status=CalibrationStatus.VALIDATED,
+        calibration_identifier="synthetic-validation",
+        device_configuration_hash="0" * 64,
+        compatible=True,
+        reason_codes=[],
+        message="synthetic valid calibration",
+    )
+    stages = [
+        StageExecution(stage_name=name, state=StageState.PASSED, message="test")
+        for name in (
+            StageName.QUALITY_ASSESSMENT,
+            StageName.CENTRE_DETECTION,
+            StageName.SEGMENTATION,
+            StageName.RING_TRACKING,
+            StageName.FEATURE_EXTRACTION,
+        )
+    ]
+
+    assert (
+        clinical_decision_allowed(
+            analysis_mode=AnalysisMode.EXPERIMENTAL,
+            calibration=calibration,
+            stages=stages,
+            allow_screen_negative=True,
+        )
+        is False
+    )

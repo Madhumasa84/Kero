@@ -35,6 +35,7 @@ class ApiRuntime:
         self.service = AnalysisService(
             registry,
             software_version=application.software_version,
+            experimental_configuration=application.experimental,
         )
 
 
@@ -119,7 +120,11 @@ def create_app(
     app = FastAPI(
         title="KERASCAN local analysis API",
         version=application.software_version,
-        description="Offline Week 1 mock analysis service.",
+        description=(
+            "Offline image-processing prototype. MOCK remains the default; "
+            "EXPERIMENTAL returns uncalibrated image-space measurements "
+            "for manual review."
+        ),
     )
     app.state.runtime = runtime
 
@@ -153,6 +158,7 @@ def create_app(
             ..., description="JPEG or PNG capture"
         ),
         metadata: str = Form(..., description="JSON-encoded AnalysisRequest"),
+        include_overlays: bool = False,
     ) -> AnalysisResult | JSONResponse:
         parsed_metadata = _parse_metadata(metadata)
         if isinstance(parsed_metadata, JSONResponse):
@@ -184,7 +190,11 @@ def create_app(
                         temporary_path,
                         application.max_request_bytes,
                     )
-                    return runtime.service.analyze(temporary_path, parsed_metadata)
+                    return runtime.service.analyze(
+                        temporary_path,
+                        parsed_metadata,
+                        include_overlays=include_overlays,
+                    )
                 finally:
                     temporary_path.unlink(missing_ok=True)
         except UploadTooLargeError:

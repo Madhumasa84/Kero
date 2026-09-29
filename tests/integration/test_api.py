@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
 from pathlib import Path
 
+import cv2
 import httpx
+import numpy as np
 
 from corneal_screening.application.api import create_app
+from corneal_screening.contracts import AnalysisMode
 
 
 def _app(application_config, registry, tmp_path: Path, max_request_bytes=None):
@@ -65,6 +70,52 @@ def test_upload_returns_shared_mock_result(
     assert body["status"] == "MANUAL_REVIEW"
     assert body["analysis_mode"] == "MOCK"
     assert "Mock result: image analysis has not been performed." in body["message"]
+
+
+def test_experimental_api_returns_shared_result_and_opt_in_inline_overlays(
+    application_config, registry, tmp_path, metadata
+):
+    app = _app(application_config, registry, tmp_path)
+    image = np.zeros((384, 384, 3), dtype=np.uint8)
+    for radius in (35, 55, 75, 95, 115, 135):
+        cv2.circle(image, (173, 204), radius, (220, 220, 220), 2, cv2.LINE_AA)
+    success, encoded = cv2.imencode(".png", image)
+    assert success
+    image_bytes = encoded.tobytes()
+    experimental = metadata.model_copy(
+        update={"analysis_mode": AnalysisMode.EXPERIMENTAL}
+    )
+    fields = {"image": ("synthetic.png", image_bytes, "image/png")}
+    data = {"metadata": _metadata_json(experimental)}
+
+    default_response = _request(app, "POST", "/analyze", files=fields, data=data)
+    overlay_response = _request(
+        app,
+        "POST",
+        "/analyze?include_overlays=true",
+        files=fields,
+        data=data,
+    )
+
+    assert default_response.status_code == 200, default_response.text
+    default_body = default_response.json()
+    assert default_body["analysis_mode"] == "EXPERIMENTAL"
+    assert default_body["status"] == "MANUAL_REVIEW"
+    assert (
+        default_body["original_image_sha256"] == hashlib.sha256(image_bytes).hexdigest()
+    )
+    assert default_body["artifact_references"] == []
+    assert overlay_response.status_code == 200
+    references = overlay_response.json()["artifact_references"]
+    assert {reference["artifact_type"] for reference in references} == {
+        "centre_overlay",
+        "ring_candidate_overlay",
+        "polar_view",
+    }
+    for reference in references:
+        decoded = base64.b64decode(reference["data_base64"])
+        assert reference["retained"] is False
+        assert hashlib.sha256(decoded).hexdigest() == reference["sha256"]
 
 
 def test_invalid_metadata_returns_structured_validation_error(

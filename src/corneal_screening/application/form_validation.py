@@ -18,7 +18,7 @@ def validate_form(
 
     eye = str(metadata.get("eye", "")).strip()
     if not eye:
-        errors.append("Please select the eye being screened.")
+        errors.append("Please select the captured eye.")
     elif eye not in ALLOWED_EYES:
         errors.append("Eye must be OD or OS.")
 

@@ -13,3 +13,31 @@ ui_preferences:
   show_preview: true
   theme: "default"
 devices_directory: "configs/devices"
+experimental:
+  configuration_version: "experimental-v1.1.0"
+  max_analysis_side_px: 1200
+  ring_background_window_px: 15
+  edge_gradient_floor: 45.0
+  centre_radius_min_fraction: 0.015
+  centre_radius_max_fraction: 0.46
+  centre_radius_step_fraction: 0.002
+  centre_min_supporting_rings: 2
+  centre_min_ring_angular_coverage: 0.28
+  centre_candidate_count: 12
+  polar_angle_samples: 360
+  polar_radial_step_px: 1.0
+  polar_min_radius_px: 3.0
+  polar_max_radius_fraction: 0.46
+  candidate_min_intensity: 70.0
+  candidate_min_prominence: 12.0
+  candidate_min_spacing_px: 4.0
+  candidate_prominence_window_px: 5
+  quality_dark_pixel_threshold: 8
+  quality_saturated_pixel_threshold: 250
+  quality_sector_count: 36
+  sector_min_detection_fraction: 0.5
+  tracking_max_radius_step_px: 8.0
+  tracking_max_gap_samples: 60
+  tracking_min_observations: 18
+  tracking_min_coverage_fraction: 0.45
+  tracking_min_ring_count_for_features: 2

@@ -11,8 +11,6 @@ from ..contracts import (
     ReasonCode,
     ResultStatus,
     StageExecution,
-    StageName,
-    StageState,
 )
 
 MOCK_RESULT_MESSAGE = "Mock result: image analysis has not been performed."
@@ -65,22 +63,7 @@ def clinical_decision_allowed(
     stages: list[StageExecution],
     allow_screen_negative: bool,
 ) -> bool:
-    """Guard future clinical statuses behind every required prerequisite."""
+    """Clinical decisions are disabled in every mode of this prototype."""
 
-    required_stages = {
-        StageName.QUALITY_ASSESSMENT,
-        StageName.CENTRE_DETECTION,
-        StageName.SEGMENTATION,
-        StageName.RING_TRACKING,
-        StageName.FEATURE_EXTRACTION,
-    }
-    stage_states = {stage.stage_name: stage.state for stage in stages}
-    return (
-        allow_screen_negative
-        and analysis_mode != AnalysisMode.MOCK
-        and calibration.status == CalibrationStatus.VALIDATED
-        and calibration.compatible
-        and all(
-            stage_states.get(stage) == StageState.PASSED for stage in required_stages
-        )
-    )
+    del analysis_mode, calibration, stages, allow_screen_negative
+    return False
