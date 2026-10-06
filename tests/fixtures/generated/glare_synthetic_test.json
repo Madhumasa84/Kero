@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "synthetic_test_image": true,
+  "case_id": "glare",
+  "description": "Bright patch added to simulate glare.",
+  "image_path": "glare_synthetic_test.png",
+  "image_size": {
+    "width": 512,
+    "height": 512
+  },
+  "known_centre": {
+    "x": 256,
+    "y": 256
+  },
+  "known_ring_radii": [
+    45,
+    75,
+    105,
+    135
+  ],
+  "transformations": [
+    "bright_glare_patch"
+  ],
+  "seed": 42,
+  "placeholder_values": true,
+  "notes": "Synthetic test fixture. No patient or device information is represented."
+}

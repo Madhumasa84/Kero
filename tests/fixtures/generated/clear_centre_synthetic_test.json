@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0",
+  "synthetic_test_image": true,
+  "case_id": "clear_centre",
+  "description": "Clear concentric rings centred in the image.",
+  "image_path": "clear_centre_synthetic_test.png",
+  "image_size": {
+    "width": 512,
+    "height": 512
+  },
+  "known_centre": {
+    "x": 256,
+    "y": 256
+  },
+  "known_ring_radii": [
+    45,
+    75,
+    105,
+    135
+  ],
+  "transformations": [],
+  "seed": 42,
+  "placeholder_values": true,
+  "notes": "Synthetic test fixture. No patient or device information is represented."
+}

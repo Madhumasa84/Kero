@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0",
+  "synthetic_test_image": true,
+  "case_id": "different_spacing",
+  "description": "Different ring count and non-uniform ring spacing.",
+  "image_path": "different_spacing_synthetic_test.png",
+  "image_size": {
+    "width": 512,
+    "height": 512
+  },
+  "known_centre": {
+    "x": 256,
+    "y": 256
+  },
+  "known_ring_radii": [
+    35,
+    60,
+    100,
+    155,
+    190
+  ],
+  "transformations": [
+    "ring_count_changed",
+    "ring_spacing_changed"
+  ],
+  "seed": 42,
+  "placeholder_values": true,
+  "notes": "Synthetic test fixture. No patient or device information is represented."
+}

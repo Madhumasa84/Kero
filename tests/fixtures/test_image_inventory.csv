@@ -1,0 +1,10 @@
+fixture_id,image_path,metadata_path,expected_category,eye,synthetic_test_image,notes
+synthetic_clear_centre,tests/fixtures/generated/clear_centre_synthetic_test.png,tests/fixtures/generated/clear_centre_synthetic_test.json,clear_centre,N/A,true,Clear concentric rings centred in the image.
+synthetic_shifted_centre,tests/fixtures/generated/shifted_centre_synthetic_test.png,tests/fixtures/generated/shifted_centre_synthetic_test.json,shifted_centre,N/A,true,Concentric rings shifted away from image centre.
+synthetic_different_size,tests/fixtures/generated/different_size_synthetic_test.png,tests/fixtures/generated/different_size_synthetic_test.json,different_size,N/A,true,Concentric rings in a non-square image.
+synthetic_different_spacing,tests/fixtures/generated/different_spacing_synthetic_test.png,tests/fixtures/generated/different_spacing_synthetic_test.json,different_spacing,N/A,true,Different ring count and non-uniform ring spacing.
+synthetic_partially_hidden,tests/fixtures/generated/partially_hidden_synthetic_test.png,tests/fixtures/generated/partially_hidden_synthetic_test.json,partially_hidden,N/A,true,Several ring sectors are occluded.
+synthetic_blurred,tests/fixtures/generated/blurred_synthetic_test.png,tests/fixtures/generated/blurred_synthetic_test.json,blurred,N/A,true,Rings blurred with deterministic Gaussian blur.
+synthetic_glare,tests/fixtures/generated/glare_synthetic_test.png,tests/fixtures/generated/glare_synthetic_test.json,glare,N/A,true,Bright patch simulating glare.
+synthetic_blank,tests/fixtures/generated/blank_synthetic_test.png,tests/fixtures/generated/blank_synthetic_test.json,blank,N/A,true,Blank image with no ring structure.
+synthetic_non_ring,tests/fixtures/generated/non_ring_synthetic_test.png,tests/fixtures/generated/non_ring_synthetic_test.json,non_ring,N/A,true,Structured image without concentric rings.
