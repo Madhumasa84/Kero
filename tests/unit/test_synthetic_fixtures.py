@@ -2,7 +2,8 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from tests.fixtures.generate_synthetic import CASES, generate_fixtures
+
+from fixtures.generate_synthetic import CASES, generate_fixtures
 
 
 def test_all_required_synthetic_cases_are_defined():
