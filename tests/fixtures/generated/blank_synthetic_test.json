@@ -1,0 +1,22 @@
+{
+  "schema_version": "1.0",
+  "synthetic_test_image": true,
+  "case_id": "blank",
+  "description": "Blank image with no ring structure.",
+  "image_path": "blank_synthetic_test.png",
+  "image_size": {
+    "width": 512,
+    "height": 512
+  },
+  "known_centre": {
+    "x": 256,
+    "y": 256
+  },
+  "known_ring_radii": [],
+  "transformations": [
+    "blank"
+  ],
+  "seed": 42,
+  "placeholder_values": true,
+  "notes": "Synthetic test fixture. No patient or device information is represented."
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "synthetic_test_image": true,
+  "case_id": "different_size",
+  "description": "Concentric rings in a non-square image.",
+  "image_path": "different_size_synthetic_test.png",
+  "image_size": {
+    "width": 480,
+    "height": 640
+  },
+  "known_centre": {
+    "x": 320,
+    "y": 240
+  },
+  "known_ring_radii": [
+    40,
+    70,
+    100,
+    130
+  ],
+  "transformations": [
+    "image_size_changed"
+  ],
+  "seed": 42,
+  "placeholder_values": true,
+  "notes": "Synthetic test fixture. No patient or device information is represented."
+}
