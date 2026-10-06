@@ -208,8 +208,7 @@ def generate_case(
         "seed": 42,
         "placeholder_values": True,
         "notes": (
-            "Synthetic test fixture. No patient or device information "
-            "is represented."
+            "Synthetic test fixture. No patient or device information is represented."
         ),
     }
 

@@ -58,11 +58,7 @@ def test_synthetic_fixture_generation_is_deterministic(tmp_path: Path):
 
         assert np.array_equal(first_image, second_image)
 
-        first_metadata = (
-            first / f"{case.case_id}_synthetic_test.json"
-        ).read_bytes()
-        second_metadata = (
-            second / f"{case.case_id}_synthetic_test.json"
-        ).read_bytes()
+        first_metadata = (first / f"{case.case_id}_synthetic_test.json").read_bytes()
+        second_metadata = (second / f"{case.case_id}_synthetic_test.json").read_bytes()
 
         assert first_metadata == second_metadata
